@@ -55,7 +55,7 @@ void loop() {
   // Delay before the next reading
   delay(1000); 
   // Make decisions based on sensor readings
-  /*if (isRobotRunning) {
+  if (isRobotRunning) {
     if (isOpponentDetected && isLineDetected) {
       attack_Opponent();
     } else if (isLineDetected && !isOpponentDetected) {
@@ -63,7 +63,7 @@ void loop() {
     } else if(!isLineDetected && isOpponentDetected) {
       runAwayFromOpponent();
     }
-  }*/
+  }
 }
 
 void initializeSensors() {
