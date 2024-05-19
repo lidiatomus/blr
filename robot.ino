@@ -29,8 +29,8 @@ bool isRobotRunning = false;
 bool isOpponentDetected = false;
 bool isLineDetected = false;
 int lastOpponentPosition = 0;
-uint16_t sensorValues[NUM_SENSORS_PER_OPPO];
-uint16_t lineSensorValues[NUM_LINE_SENSORS];
+bool sensorValues[NUM_SENSORS_PER_OPPO];
+bool lineSensorValues[NUM_LINE_SENSORS];
 
 void setup() {
   // Initializare serial comunication
@@ -51,9 +51,11 @@ void loop() {
   // Check start-stop module
   checkStartStopModule();
   updateSensorReadings();
-
+  printSensorValues();
+  // Delay before the next reading
+  delay(1000); 
   // Make decisions based on sensor readings
-  if (isRobotRunning) {
+  /*if (isRobotRunning) {
     if (isOpponentDetected && isLineDetected) {
       attack_Opponent();
     } else if (isLineDetected && !isOpponentDetected) {
@@ -61,14 +63,22 @@ void loop() {
     } else if(!isLineDetected && isOpponentDetected) {
       runAwayFromOpponent();
     }
-  }
+  }*/
 }
 
 void initializeSensors() {
   // Initializare senzor de linie
-  unsigned char lineSensorPins[NUM_LINE_SENSORS] = {LINE_SENSOR1_PIN, LINE_SENSOR2_PIN}; 
+  //unsigned char lineSensorPins[NUM_LINE_SENSORS] = {LINE_SENSOR1_PIN, LINE_SENSOR2_PIN}; 
+  pinMode(LINE_SENSOR1_PIN, INPUT);
+  pinMode(LINE_SENSOR2_PIN, INPUT);
   // Initializare senzor de oponent
-  unsigned char opponentSensorPins[NUM_OPPO_SENSORS] = {OPPO_SENSOR_1_PIN, OPPO_SENSOR_2_PIN, OPPO_SENSOR_3_PIN, OPPO_SENSOR_4_PIN, OPPO_SENSOR_5_PIN};
+  pinMode(OPPO_SENSOR_1_PIN, INPUT);
+  pinMode(OPPO_SENSOR_2_PIN, INPUT);
+  pinMode(OPPO_SENSOR_3_PIN, INPUT);
+  pinMode(OPPO_SENSOR_4_PIN, INPUT);
+  pinMode(OPPO_SENSOR_5_PIN, INPUT);
+
+  //unsigned char opponentSensorPins[NUM_OPPO_SENSORS] = {OPPO_SENSOR_1_PIN, OPPO_SENSOR_2_PIN, OPPO_SENSOR_3_PIN, OPPO_SENSOR_4_PIN, OPPO_SENSOR_5_PIN};
 
 }
 
@@ -122,8 +132,12 @@ void stopRobot() {
 
 void updateSensorReadings() {
   //citim senzorii
-  oppoSensors.read(sensorValues);
-
+  //oppoSensors.read(sensorValues);
+  sensorValues[0] = digitalRead(OPPO_SENSOR_1_PIN);
+  sensorValues[1] = digitalRead(OPPO_SENSOR_2_PIN);
+  sensorValues[2] = digitalRead(OPPO_SENSOR_3_PIN);
+  sensorValues[3] = digitalRead(OPPO_SENSOR_4_PIN);
+  sensorValues[4] = digitalRead(OPPO_SENSOR_5_PIN);
 
   isOpponentDetected = false;
   for (int i = 0; i < NUM_OPPO_SENSORS; i++) {
@@ -135,10 +149,22 @@ void updateSensorReadings() {
   }
 
   // Update senzorii de linie
-  lineSensors.read(lineSensorValues);
-
+  //lineSensors.read(lineSensorValues);
+  lineSensorValues[0] = digitalRead(LINE_SENSOR1_PIN);
+  lineSensorValues[1] = digitalRead(LINE_SENSOR2_PIN);
   // verificam linia
   isLineDetected = (lineSensorValues[0] < LINE_THRESHOLD) || (lineSensorValues[1] < LINE_THRESHOLD);
+}
+void printSensorValues() {
+  // Print the sensor values to the Serial Monitor
+  Serial.print("Opponent Sensor Values: ");
+  for (int i = 0; i < NUM_OPPO_SENSORS; i++) {
+    Serial.print(sensorValues[i]);
+    if (i < NUM_OPPO_SENSORS - 1) {
+      Serial.print(", ");
+    }
+  }
+  Serial.println();
 }
 void runAwayFromOpponent() {
   // Setam motoare sa fugim de oponent
