@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <QTRSensors.h>
 
-// definire pini
+// Define pins
 #define LINE_SENSOR1_PIN 2
 #define LINE_SENSOR2_PIN 3
 #define OPPO_SENSOR_1_PIN 4
@@ -16,74 +16,77 @@
 #define MOTOR_DRIVER_2_DIR_PIN 13
 #define LINE_THRESHOLD 500
 
-// definire constante
+// Define constants
 #define NUM_OPPO_SENSORS 5
 #define NUM_LINE_SENSORS 2
-#define NUM_SENSORS_PER_OPPO 1
 
-//creare obiect
-QTRSensors oppoSensors;
-QTRSensors lineSensors;
-//variabile
+// Variables
 bool isRobotRunning = false;
 bool isOpponentDetected = false;
 bool isLineDetected = false;
-int lastOpponentPosition = 0;
-bool sensorValues[NUM_SENSORS_PER_OPPO];
+int lastOpponentPosition = -1; // Initialize to -1 to indicate no detection
+bool sensorValues[NUM_OPPO_SENSORS];
 bool lineSensorValues[NUM_LINE_SENSORS];
+bool wasModulePressed = false;
+
+// Function declarations
+void initializeSensors();
+void initializeMotors();
+void initializeStartStopModule();
+void checkStartStopModule();
+void startRobot();
+void stopRobot();
+void updateSensorReadings();
+void runAwayFromOpponent();
+void followWhiteLine();
+void attack_Opponent();
 
 void setup() {
-  // Initializare serial comunication
+  // Initialize serial communication
   Serial.begin(9600);
 
-  // Initializare senzorii
+  // Initialize sensors, motors, and start-stop module
   initializeSensors();
-
-  // Initializare motoare
   initializeMotors();
-
-  // Initializare start-stop module
   initializeStartStopModule();
-  
 }
 
 void loop() {
   // Check start-stop module
   checkStartStopModule();
   updateSensorReadings();
-  printSensorValues();
+   printSensorValues();
   // Delay before the next reading
   delay(1000); 
+
   // Make decisions based on sensor readings
   if (isRobotRunning) {
-    if (isOpponentDetected && isLineDetected) {
+    /*if (isOpponentDetected && isLineDetected) {
       attack_Opponent();
     } else if (isLineDetected && !isOpponentDetected) {
       followWhiteLine();
-    } else if(!isLineDetected && isOpponentDetected) {
-      runAwayFromOpponent();
+    } else if(!isLineDetected && isOpponentDetected) {*/
+      //runAwayFromOpponent();
+      attack_Opponent();
     }
   }
-}
+//}
 
 void initializeSensors() {
-  // Initializare senzor de linie
-  //unsigned char lineSensorPins[NUM_LINE_SENSORS] = {LINE_SENSOR1_PIN, LINE_SENSOR2_PIN}; 
+  // Initialize line sensors
   pinMode(LINE_SENSOR1_PIN, INPUT);
   pinMode(LINE_SENSOR2_PIN, INPUT);
-  // Initializare senzor de oponent
+
+  // Initialize opponent sensors
   pinMode(OPPO_SENSOR_1_PIN, INPUT);
   pinMode(OPPO_SENSOR_2_PIN, INPUT);
   pinMode(OPPO_SENSOR_3_PIN, INPUT);
   pinMode(OPPO_SENSOR_4_PIN, INPUT);
   pinMode(OPPO_SENSOR_5_PIN, INPUT);
-
-  //unsigned char opponentSensorPins[NUM_OPPO_SENSORS] = {OPPO_SENSOR_1_PIN, OPPO_SENSOR_2_PIN, OPPO_SENSOR_3_PIN, OPPO_SENSOR_4_PIN, OPPO_SENSOR_5_PIN};
-
 }
 
 void initializeMotors() {
-  // drivere
+  // Initialize motor driver pins
   pinMode(MOTOR_DRIVER_1_PWM_PIN, OUTPUT);
   pinMode(MOTOR_DRIVER_2_PWM_PIN, OUTPUT);
   pinMode(MOTOR_DRIVER_1_DIR_PIN, OUTPUT);
@@ -94,33 +97,25 @@ void initializeStartStopModule() {
   pinMode(START_STOP_MODULE_START_PIN, INPUT);
 }
 
-bool wasModulePressed = false; // ca sa verificam cand e apasat din nou start stop module (la prima apasare porneste robotul la a doua se opreste)
-
 void checkStartStopModule() {
   int moduleState = digitalRead(START_STOP_MODULE_START_PIN);
   
-  // daca primim semnal de la module pt prima oara robotul porneste
+  // If start-stop module is pressed for the first time, start the robot
   if (moduleState == LOW && !wasModulePressed) {
     startRobot();
     isRobotRunning = true;
     wasModulePressed = true;
   } 
-  // daca primim din nou semnal de la module robotul se opreste
+  // If start-stop module is pressed again, stop the robot
   else if (moduleState == HIGH && wasModulePressed) {
     stopRobot();
     isRobotRunning = false;
     wasModulePressed = false;
   }
-  
 }
 
 void startRobot() {
-  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH); 
-  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);
-  //directii
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 100); // viteza trebuie gandita pt strategie, acum e maxima
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 100); // 
-  Serial.println("Robot started"); // for debugging
+  Serial.println("Robot started");
 }
 
 void stopRobot() {
@@ -131,30 +126,182 @@ void stopRobot() {
 }
 
 void updateSensorReadings() {
-  //citim senzorii
-  //oppoSensors.read(sensorValues);
+  // Read opponent sensors
   sensorValues[0] = digitalRead(OPPO_SENSOR_1_PIN);
   sensorValues[1] = digitalRead(OPPO_SENSOR_2_PIN);
   sensorValues[2] = digitalRead(OPPO_SENSOR_3_PIN);
   sensorValues[3] = digitalRead(OPPO_SENSOR_4_PIN);
   sensorValues[4] = digitalRead(OPPO_SENSOR_5_PIN);
 
+  // Update opponent detection status
   isOpponentDetected = false;
   for (int i = 0; i < NUM_OPPO_SENSORS; i++) {
-    if (sensorValues[i] < LINE_THRESHOLD) {
+    if (sensorValues[i] == 1) { 
       isOpponentDetected = true;
-      lastOpponentPosition = i; // Update pozitia oponentului
-      break;
+      lastOpponentPosition = i;
     }
   }
 
-  // Update senzorii de linie
-  //lineSensors.read(lineSensorValues);
+  // Read line sensors
   lineSensorValues[0] = digitalRead(LINE_SENSOR1_PIN);
   lineSensorValues[1] = digitalRead(LINE_SENSOR2_PIN);
-  // verificam linia
-  isLineDetected = (lineSensorValues[0] < LINE_THRESHOLD) || (lineSensorValues[1] < LINE_THRESHOLD);
+
+  // Update line detection status
+  isLineDetected = (lineSensorValues[0] == LOW) || (lineSensorValues[1] == LOW); // Assuming LOW indicates line detection
 }
+
+void runAwayFromOpponent() {
+  Serial.println("Running away from opponent...");
+
+  // Read the current sensor values
+  updateSensorReadings();
+
+  // Determine the action based on the current sensor readings
+  if (sensorValues[0] == 1) {
+    Serial.println("Opponent detected on the left. Turning right.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+  } else if (sensorValues[1] == 1) {
+    Serial.println("Opponent detected on the left front corner. Turning right.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+  } else if (sensorValues[2] == 1) {
+    Serial.println("Opponent detected at the front. Moving backward.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+  } else if (sensorValues[3] == 1) {
+    Serial.println("Opponent detected on the right front corner. Turning left.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+  } else if (sensorValues[4] == 1) {
+    Serial.println("Opponent detected on the right. Turning left.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+  } else {
+    // Fallback to last known opponent position if no sensors detect the opponent
+    Serial.println("No opponent detected by sensors. Using last known position.");
+    if (lastOpponentPosition == 0) {
+      Serial.println("Last opponent position: left. Turning right.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+    } else if (lastOpponentPosition == 1) {
+      Serial.println("Last opponent position: left front corner. Turning right.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+    } else if (lastOpponentPosition == 2) {
+      Serial.println("Last opponent position: front. Moving backward.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+    } else if (lastOpponentPosition == 3) {
+      Serial.println("Last opponent position: right front corner. Turning left.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+    } else if (lastOpponentPosition == 4) {
+      Serial.println("Last opponent position: right. Turning left.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+    } else {
+      Serial.println("Last opponent position unknown. Turning left.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+    }
+  }
+  
+  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 100);
+  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 100);
+  delay(3000); // Wait for 3 seconds
+
+  Serial.println("Continuing to move forward after delay.");
+  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+
+  updateSensorReadings(); // Update sensor readings
+  Serial.println("Updated sensor readings.");
+}
+
+
+void followWhiteLine() {
+  // Modify motion to stay in the ring
+  // If front detects white (value 0), move backward
+  if (lineSensorValues[0] == LOW) { // While front sees white
+    while (lineSensorValues[1] != LOW) { // And back is black
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);  // Move backward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH); // Move backward
+      updateSensorReadings(); // Update sensor readings
+    }
+  } else if (lineSensorValues[1] == LOW) {
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);
+  } else {
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);
+  }
+  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 130);
+  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 130);
+  updateSensorReadings(); // Update sensor readings
+}
+
+void attack_Opponent() {
+  Serial.println("Attacking opponent...");
+
+  // Read the current sensor values
+  updateSensorReadings();
+
+  // Determine the action based on the current sensor readings
+  if (sensorValues[0] == 1) {
+    Serial.println("Opponent detected on the left. Turning left.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+  } else if (sensorValues[1] == 1 || sensorValues[2] == 1) {
+    Serial.println("Opponent detected at the front. Moving forward.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+  } else if (sensorValues[3] == 1) {
+    Serial.println("Opponent detected on the right front corner. Turning right.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+  } else if (sensorValues[4] == 1) {
+    Serial.println("Opponent detected on the right. Turning right.");
+    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+  } else {
+    // Fallback to last known opponent position if no sensors detect the opponent
+    Serial.println("No opponent detected by sensors. Using last known position.");
+    if (lastOpponentPosition == 0) {
+      Serial.println("Last opponent position: left. Turning left.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+    } else if (lastOpponentPosition == 1 || lastOpponentPosition == 2) {
+      Serial.println("Last opponent position: front. Moving forward.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+    } else if (lastOpponentPosition == 3) {
+      Serial.println("Last opponent position: right front corner. Turning right.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+    } else if (lastOpponentPosition == 4) {
+      Serial.println("Last opponent position: right. Turning right.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
+    } else {
+      Serial.println("Last opponent position unknown. Moving forward.");
+      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
+      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
+    }
+  }
+  
+  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 250);
+  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 250);
+  delay(3000); // Wait for 3 seconds
+
+  Serial.println("Continuing to move forward after delay.");
+  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Move forward
+  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Move forward
+
+  updateSensorReadings(); // Update sensor readings
+  Serial.println("Updated sensor readings.");
+}
+
 void printSensorValues() {
   // Print the sensor values to the Serial Monitor
   Serial.print("Opponent Sensor Values: ");
@@ -165,77 +312,4 @@ void printSensorValues() {
     }
   }
   Serial.println();
-}
-void runAwayFromOpponent() {
-  // Setam motoare sa fugim de oponent
-  // daca e la stanga mergem la dreapta, si invers pt stanga
-  if (lastOpponentPosition == 0) {
-    // Opponent detected on the left
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // turn right
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // move fwd
-  } else if (lastOpponentPosition == 1 || lastOpponentPosition == 2) {
-    // Opponent detected at the front (center or right)
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Move backward
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Move backward
-  } else if (lastOpponentPosition == 3 || lastOpponentPosition == 2) {
-    // Opponent detected on the left side
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Move forward
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Turn right
-  } else if (lastOpponentPosition == 4) {
-    // Opponent detected on the right side
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Turn left
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Move forward
-  } else {
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Turn left
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Move forward
-  }
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 100);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 100);
-  delay(3000); // Wait for 3 seconds (10000 milliseconds)
-  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Move forward
-  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Turn right
-  updateSensorReadings(); // Update sensor readings
-}
-void attack_Opponent() {
-  // Setam motoare sa fugim de oponent
-  // daca e la stanga mergem la dreapta, si invers pt stanga
-  if (lastOpponentPosition == 0) {
-    // Opponent detected on the left
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);  // Move forward
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);   // Turn LEFT
-  } else if (lastOpponentPosition == 1 || lastOpponentPosition == 2) {
-    // Opponent detected at the front (center or right)
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);   // Move backward
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);   // Move backward
-  } else if (lastOpponentPosition == 3) {
-    // Opponent detected on the RIGHT side
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN,LOW);  // Move forward
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);   // Turn right
-  } else if (lastOpponentPosition == 4) {
-    // Opponent detected on the right side
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);   // Turn RIGH
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);  // Move FOWARD
-  }
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 150);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 150);
-  updateSensorReadings(); // Update sensor readings
-}
-void followWhiteLine() {
-  // modificam mersul ca sa ramanem in ring
-  //daca FATA -> VAL 0 , ATUNCI DAM CU SPATELE 
-  if (lineSensorValues[0] > LINE_THRESHOLD) { // cat timp vede pe fata alba
-    while (lineSensorValues[1] < LINE_THRESHOLD) { //si pe spate negru 180 
-      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);  // Move backward
-      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH); // Move backward
-    }
-  } else if (lineSensorValues[1] > LINE_THRESHOLD) {
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);
-  } else {
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);
-  }
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 130);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 130);
-  updateSensorReadings(); // Update sensor readings
 }
