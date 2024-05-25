@@ -1,5 +1,5 @@
-#include <Wire.h>
-#include <QTRSensors.h>
+ #include <Wire.h>
+#include "CytronMotorDriver.h"
 
 // Define pins
 #define LINE_SENSOR1_PIN 2
@@ -10,15 +10,15 @@
 #define OPPO_SENSOR_4_PIN 7
 #define OPPO_SENSOR_5_PIN 8
 #define START_STOP_MODULE_START_PIN 9
-#define MOTOR_DRIVER_1_PWM_PIN 10
+#define MOTOR_DRIVER_1_PWM_PIN 10 //analog
 #define MOTOR_DRIVER_2_PWM_PIN 11
-#define MOTOR_DRIVER_1_DIR_PIN 12
+#define MOTOR_DRIVER_1_DIR_PIN 12 //digital
 #define MOTOR_DRIVER_2_DIR_PIN 13
-#define LINE_THRESHOLD 500
+#define LINE_THRESHOLD 1000// de hotarat
 
 // Define constants
 #define NUM_OPPO_SENSORS 5
-#define NUM_LINE_SENSORS 2
+#define NUM_LINE_SENSORS 2 
 
 // Variables
 bool isRobotRunning = false;
@@ -26,58 +26,75 @@ bool isOpponentDetected = false;
 bool isLineDetected = false;
 int lastOpponentPosition = -1; // Initialize to -1 to indicate no detection
 bool sensorValues[NUM_OPPO_SENSORS];
-bool lineSensorValues[NUM_LINE_SENSORS];
+unsigned long lineSensorValues[NUM_LINE_SENSORS];
 bool wasModulePressed = false;
-
+unsigned long sensorTime;
 // Function declarations
-void initializeSensors();
+void initializeOppoSensors();
 void initializeMotors();
 void initializeStartStopModule();
 void checkStartStopModule();
 void startRobot();
 void stopRobot();
-void updateSensorReadings();
+void updateOppoSensorReadings();
+void lineSensor();
 void runAwayFromOpponent();
 void followWhiteLine();
-void attack_Opponent();
-
+void attackOpponent();
+void lastPosition();
+CytronMD motor1(PWM_DIR,10 , 12);  // PWM 1 = Pin 3, DIR 1 = Pin 4.
+CytronMD motor2(PWM_DIR, 11, 13); // PWM 2 = Pin 9, DIR 2 = Pin 10.
 void setup() {
-  // Initialize serial communication
+  
   Serial.begin(9600);
-
+  delay(3000); 
   // Initialize sensors, motors, and start-stop module
-  initializeSensors();
-  initializeMotors();
+  initializeOppoSensors();
+  //initializeMotors();
   initializeStartStopModule();
 }
 
 void loop() {
-  // Check start-stop module
-  checkStartStopModule();
-  updateSensorReadings();
-   printSensorValues();
-  // Delay before the next reading
-  delay(1000); 
-
+  int moduleState = digitalRead(START_STOP_MODULE_START_PIN);
+  
+  // If start-stop module is pressed for the first time, start the robot
+  if (moduleState == 1) {
+    startRobot();
+    isRobotRunning = true;
+     Serial.println("Robot started"); 
+  } 
+  // If start-stop module is pressed again, stop the robot
+  else if (moduleState == 0 ) {
+    stopRobot();
+    isRobotRunning = false;
+     Serial.println("Robot stopped"); 
+  }
+   if (isRobotRunning){
+     lineSensor();
+    updateOppoSensorReadings();
+    //printSensorValues();
+   attackOpponent();
+    followWhiteLine();}
+    //delay(3000);
+    //stopRobot();
+    //delay(100);
   // Make decisions based on sensor readings
-  if (isRobotRunning) {
-    /*if (isOpponentDetected && isLineDetected) {
-      attack_Opponent();
+  /*if (isRobotRunning) {
+    if (isOpponentDetected && isLineDetected) {
+      attackOpponent();
+      //followWhiteLine();
     } else if (isLineDetected && !isOpponentDetected) {
       followWhiteLine();
-    } else if(!isLineDetected && isOpponentDetected) {*/
-      //runAwayFromOpponent();
-      attackOpponent();
+    } else if(!isLineDetected && isOpponentDetected) {
+      runAwayFromOpponent();
+      followWhiteLine();
     }
-  }
-//}
+  }*/
+   //attackOpponent();
+}
 
-void initializeSensors() {
-  // Initialize line sensors
-  pinMode(LINE_SENSOR1_PIN, INPUT);
-  pinMode(LINE_SENSOR2_PIN, INPUT);
-
-  // Initialize opponent sensors
+void initializeOppoSensors() {
+  
   pinMode(OPPO_SENSOR_1_PIN, INPUT);
   pinMode(OPPO_SENSOR_2_PIN, INPUT);
   pinMode(OPPO_SENSOR_3_PIN, INPUT);
@@ -85,47 +102,40 @@ void initializeSensors() {
   pinMode(OPPO_SENSOR_5_PIN, INPUT);
 }
 
-void initializeMotors() {
-  // Initialize motor driver pins
-  pinMode(MOTOR_DRIVER_1_PWM_PIN, OUTPUT);
-  pinMode(MOTOR_DRIVER_2_PWM_PIN, OUTPUT);
-  pinMode(MOTOR_DRIVER_1_DIR_PIN, OUTPUT);
-  pinMode(MOTOR_DRIVER_2_DIR_PIN, OUTPUT);
-}
 
 void initializeStartStopModule() {
   pinMode(START_STOP_MODULE_START_PIN, INPUT);
 }
-
+/*
 void checkStartStopModule() {
   int moduleState = digitalRead(START_STOP_MODULE_START_PIN);
   
   // If start-stop module is pressed for the first time, start the robot
-  if (moduleState == LOW && !wasModulePressed) {
+  if (moduleState == 1) {
     startRobot();
     isRobotRunning = true;
-    wasModulePressed = true;
   } 
   // If start-stop module is pressed again, stop the robot
-  else if (moduleState == HIGH && wasModulePressed) {
+  else if (moduleState == 0 ) {
     stopRobot();
     isRobotRunning = false;
-    wasModulePressed = false;
   }
 }
-
+*/
 void startRobot() {
+  motor1.setSpeed(100);   // Motor 1 runs forward at 50% speed.
+  motor2.setSpeed(100);  // Motor 2 runs backward at 50% speed.
   Serial.println("Robot started");
 }
 
 void stopRobot() {
   // Stop the motors
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 0); 
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 0); 
+ motor1.setSpeed(0);     // Motor 1 stops.
+  motor2.setSpeed(0);     // Motor 2 stops.
   Serial.println("Robot stopped"); 
 }
 
-void updateSensorReadings() {
+void updateOppoSensorReadings() {
   // Read opponent sensors
   sensorValues[0] = digitalRead(OPPO_SENSOR_1_PIN);
   sensorValues[1] = digitalRead(OPPO_SENSOR_2_PIN);
@@ -142,137 +152,118 @@ void updateSensorReadings() {
     }
   }
 
-  // Read line sensors
-  lineSensorValues[0] = digitalRead(LINE_SENSOR1_PIN);
-  lineSensorValues[1] = digitalRead(LINE_SENSOR2_PIN);
-
-  // Update line detection status
-  isLineDetected = (lineSensorValues[0] == LOW) || (lineSensorValues[1] == LOW); // Assuming LOW indicates line detection
 }
+void lineSensor() {
+  // Measure the discharge time for the first line sensor
+  pinMode(LINE_SENSOR1_PIN, OUTPUT);
+  digitalWrite(LINE_SENSOR1_PIN, HIGH);
+  delayMicroseconds(12);
+  pinMode(LINE_SENSOR1_PIN, INPUT);
+  sensorTime = micros();
+  while (digitalRead(LINE_SENSOR1_PIN)) {}
+  lineSensorValues[0] = micros() - sensorTime;
 
+  // Measure the discharge time for the second line sensor
+  pinMode(LINE_SENSOR2_PIN, OUTPUT);
+  digitalWrite(LINE_SENSOR2_PIN, HIGH);
+  delayMicroseconds(12);
+  pinMode(LINE_SENSOR2_PIN, INPUT);
+  sensorTime = micros();
+  while (digitalRead(LINE_SENSOR2_PIN)) {}
+  lineSensorValues[1] = micros() - sensorTime;
+
+  // Print the sensor values for debugging
+  Serial.print("Line Sensor 1: ");
+  Serial.println(lineSensorValues[0]);
+  Serial.print("Line Sensor 2: ");
+  Serial.println(lineSensorValues[1]);
+
+  // Determine if the line is detected
+  isLineDetected = (lineSensorValues[0] < LINE_THRESHOLD) || (lineSensorValues[1] < LINE_THRESHOLD);
+  if(isLineDetected == true) 
+  Serial.println("line detected ");
+}
 
 void followWhiteLine() {
   // Modify motion to stay in the ring
   // If front detects white (value 0), move backward
-  if (lineSensorValues[0] == LOW) { // While front sees white
-    while (lineSensorValues[1] != LOW) { // And back is black
-      digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);  // Move backward
-      digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH); // Move backward
-      updateSensorReadings(); // Update sensor readings
+  if (lineSensorValues[0] < LINE_THRESHOLD) { // While stanga sees white 
+      turnRight(1000) ;
     }
-  } else if (lineSensorValues[1] == LOW) {
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);
-  } else {
-    digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);
-    digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);
+   else if (lineSensorValues[1] <LINE_THRESHOLD) {
+    turnLeft(1000);
+  } else if(lineSensorValues[0] < LINE_THRESHOLD && lineSensorValues[1] < LINE_THRESHOLD)
+  {
+  goBackward(2000);}
+  else {
+    motor1.setSpeed(50);   // Motor 1 runs forward at 50% speed.
+  motor2.setSpeed(50);
   }
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 130);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 130);
-  updateSensorReadings(); // Update sensor readings
+  lineSensor(); // Update line sensor readings
 }
+
 void turnLeft(int duration) {
-  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);   // Left motor backward
-  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 250);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 250);
+  motor1.setSpeed(-200);   // Motor 1 runs forward at 50% speed.
+  motor2.setSpeed(200); 
   delay(duration);
-  stopMotors();
 }
 
 void turnRight(int duration) {
-  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
-  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);   // Right motor backward
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 150);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 150);
+  motor1.setSpeed(-200);   // Motor 1 runs forward at 50% speed.
+  motor2.setSpeed(200); 
   delay(duration);
-  stopMotors();
 }
 
 void goForward(int duration) {
-  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, HIGH);  // Left motor forward
-  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, HIGH);  // Right motor forward
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 250);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 250);
+  motor1.setSpeed(100);   // Motor 1 runs forward at 50% speed.
+  motor2.setSpeed(100); 
   delay(duration);
-  stopMotors();
 }
 void goBackward(int duration) {
-  digitalWrite(MOTOR_DRIVER_1_DIR_PIN, LOW);  // Left motor forward
-  digitalWrite(MOTOR_DRIVER_2_DIR_PIN, LOW);  // Right motor forward
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 250);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 250);
+  motor1.setSpeed(-100);   // Motor 1 runs forward at 50% speed.
+  motor2.setSpeed(-100); 
   delay(duration);
-  stopMotors();
 }
-void stopMotors() {
-  analogWrite(MOTOR_DRIVER_1_PWM_PIN, 0);
-  analogWrite(MOTOR_DRIVER_2_PWM_PIN, 0);
-}
+
 void runAwayFromOpponent() {
   Serial.println("Running away from opponent...");
 
   // Read the current sensor values
-  updateSensorReadings();
+  updateOppoSensorReadings();
 
   // Determine the action based on the current sensor readings
   if (sensorValues[0] == 1) {
     Serial.println("Opponent detected on the left. Turning right.");
-    turnRight(500);  // Adjust the duration as needed
-  } else if (sensorValues[1] == 1) {
+    turnRight(300); } // Adjust the duration as needed*/
+    if (sensorValues[1] == 1) {
     Serial.println("Opponent detected on the left front corner. Turning right.");
-    turnRight(200);  // Adjust the duration as needed
+    turnRight(100);  // Adjust the duration as needed
   } else if (sensorValues[1] == 1 && sensorValues[2] == 1) {
     Serial.println("Opponent detected on the left front corner. Turning right.");
-    goBackward(300);  // Adjust the duration as needed
-    turnRight(500);
-    goForward(300);
+    goBackward(200);  // Adjust the duration as needed
+    turnRight(200);
+    goForward(200);
   } 
   else if (sensorValues[2] == 1) {
     Serial.println("Opponent detected at the front. Moving backward.");
-    goBackward(500);  // Adjust the duration as needed
+    goBackward(200);  // Adjust the duration as needed
   } else if (sensorValues[3] == 1) {
     Serial.println("Opponent detected on the right front corner. Turning left.");
     turnLeft(200);  // Adjust the duration as needed
   }else if (sensorValues[3] == 1 && sensorValues[2] == 1) {
     Serial.println("Opponent detected on the right front corner. Turning left.");
-    goBackward(300);  // Adjust the duration as needed
-    turnLeft(200);  // Adjust the duration as needed
-    goForward(300);
+    goBackward(100);  // Adjust the duration as needed
+    turnLeft(100);  // Adjust the duration as needed
+    goForward(100);
     
   }
    else if (sensorValues[4] == 1) {
     Serial.println("Opponent detected on the right. Turning left.");
-    turnLeft(500);  // Adjust the duration as needed
-  } else {
-    // Fallback to last known opponent position if no sensors detect the opponent
-    Serial.println("No opponent detected by sensors. Using last known position.");
-    if (lastOpponentPosition == 0) {
-      Serial.println("Last opponent position: left. Turning right.");
-      turnRight(500);  // Adjust the duration as needed
-    } else if (lastOpponentPosition == 1) {
-      Serial.println("Last opponent position: left front corner. Turning right.");
-      turnRight(500);  // Adjust the duration as needed
-    } else if (lastOpponentPosition == 2) {
-      Serial.println("Last opponent position: front. Moving backward.");
-      goBackward(1000);  // Adjust the duration as needed
-    } else if (lastOpponentPosition == 3) {
-      Serial.println("Last opponent position: right front corner. Turning left.");
-      turnLeft(500);  // Adjust the duration as needed
-    } else if (lastOpponentPosition == 4) {
-      Serial.println("Last opponent position: right. Turning left.");
-      turnLeft(500);  // Adjust the duration as needed
-    } else {
-      Serial.println("Last opponent position unknown. Turning left.");
-      turnLeft(500);  // Adjust the duration as needed
-    }
-  }
-
-  // Continue moving forward after turning
-  Serial.println("Continuing to move forward after delay.");
-  goForward(1000);  // Adjust the duration as needed
-
-  updateSensorReadings(); // Update sensor readings
+    turnLeft(200);  // Adjust the duration as needed
+  } 
+  else followWhiteLine();
+ 
+  updateOppoSensorReadings(); // Update sensor readings
   Serial.println("Updated sensor readings.");
 }
 
@@ -280,35 +271,45 @@ void attackOpponent() {
   Serial.println("Attacking opponent...");
 
   // Read the current sensor values
-  updateSensorReadings();
+  updateOppoSensorReadings();
 
   // Determine the action based on the current sensor readings
-  if (sensorValues[0] == 1) {
+  /*if (sensorValues[0] == 1) {
     Serial.println("Opponent detected on the left. Turning left.");
-    turnLeft(500);  // Adjust the duration as needed
-  } else if (sensorValues[1] == 1) {
+    turnLeft(100);  // Adjust the duration as needed
+    goForward(500);  // Adjust the duration as needed
+
+  } else*/ if (sensorValues[1] == 1) {
     Serial.println("Opponent detected on the left front corner. Turning left.");
-    turnLeft(200);  // Adjust the duration as needed
+    turnLeft(50);
+    goForward(600);  // Adjust the duration as needed
   } else if (sensorValues[1] == 1 && sensorValues[2] == 1) {
-    Serial.println("Opponent detected on the left front corner. Moving forward and turning left.");
-    goForward(300);  // Adjust the duration as needed
-    turnLeft(500);
-    goForward(300);
+    Serial.println("Opponent detected on the left front corner. Moving forward.");
+    goForward(500);  // Adjust the duration as needed
   } else if (sensorValues[2] == 1) {
     Serial.println("Opponent detected at the front. Moving forward.");
-    goForward(500);  // Adjust the duration as needed
+    goForward(600);  // Adjust the duration as needed
   } else if (sensorValues[3] == 1) {
     Serial.println("Opponent detected on the right front corner. Turning right.");
-    turnRight(200);  // Adjust the duration as needed
-  } else if (sensorValues[3] == 1 && sensorValues[2] == 1) {
+    turnRight(100);  // Adjust the duration as needed
+    goForward(500);
+  }else if (sensorValues[3] == 1 && sensorValues[2] == 1 && sensorValues[1] == 1) {
+    Serial.println("Opponent detected in front.");
+    goForward(400);  // Adjust the duration as needed
+  } 
+  else if (sensorValues[3] == 1 && sensorValues[2] == 1) {
     Serial.println("Opponent detected on the right front corner. Moving forward and turning right.");
-    goForward(300);  // Adjust the duration as needed
-    turnRight(200);  // Adjust the duration as needed
-    goForward(300);
-  } else if (sensorValues[4] == 1) {
+    goForward(400);  // Adjust the duration as needed
+  } else /*if (sensorValues[4] == 1) {
     Serial.println("Opponent detected on the right. Turning right.");
     turnRight(500);  // Adjust the duration as needed
-  } else {
+  } */
+  followWhiteLine();
+  updateOppoSensorReadings(); // Update sensor readings
+  Serial.println("Updated sensor readings.");
+}
+void lastPosition()
+  {
     // Fallback to last known opponent position if no sensors detect the opponent
     Serial.println("No opponent detected by sensors. Using last known position.");
     if (lastOpponentPosition == 0) {
@@ -331,10 +332,6 @@ void attackOpponent() {
       goForward(1000);  // Adjust the duration as needed
     }
   }
-
-  updateSensorReadings(); // Update sensor readings
-  Serial.println("Updated sensor readings.");
-}
 
 
 void printSensorValues() {
