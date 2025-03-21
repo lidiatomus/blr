@@ -1,6 +1,5 @@
  #include <Wire.h>
-#include "CytronMotorDriver.h"
-
+ #include "CytronMotorDriver.h"
 // Define pins
 #define LINE_SENSOR1_PIN 2
 #define LINE_SENSOR2_PIN 3
@@ -14,7 +13,8 @@
 #define MOTOR_DRIVER_2_PWM_PIN 11
 #define MOTOR_DRIVER_1_DIR_PIN 12 //digital
 #define MOTOR_DRIVER_2_DIR_PIN 13
-#define LINE_THRESHOLD 1000// de hotarat
+#define LINE_THRESHOLD 50
+// de hotarat
 
 // Define constants
 #define NUM_OPPO_SENSORS 5
@@ -46,8 +46,8 @@ CytronMD motor1(PWM_DIR,10 , 12);  // PWM 1 = Pin 3, DIR 1 = Pin 4.
 CytronMD motor2(PWM_DIR, 11, 13); // PWM 2 = Pin 9, DIR 2 = Pin 10.
 void setup() {
   
-  Serial.begin(9600);
-  delay(3000); 
+  Serial.begin(9600); 
+  //Serial.println("Testing Serial Monitor...");
   // Initialize sensors, motors, and start-stop module
   initializeOppoSensors();
   //initializeMotors();
@@ -55,8 +55,14 @@ void setup() {
 }
 
 void loop() {
+
+   //Serial.println("Testing Serial Monitor...");
   int moduleState = digitalRead(START_STOP_MODULE_START_PIN);
-  
+  delay(3000);
+   // lineSensor();
+    //updateOppoSensorReadings();
+    printSensorValues();
+   
   // If start-stop module is pressed for the first time, start the robot
   if (moduleState == 1) {
     startRobot();
@@ -67,8 +73,9 @@ void loop() {
   else if (moduleState == 0 ) {
     stopRobot();
     isRobotRunning = false;
-     Serial.println("Robot stopped"); 
+     //Serial.println("Robot stopped"); 
   }
+   isRobotRunning = true;
    if (isRobotRunning){
      lineSensor();
     updateOppoSensorReadings();
@@ -132,7 +139,7 @@ void stopRobot() {
   // Stop the motors
  motor1.setSpeed(0);     // Motor 1 stops.
   motor2.setSpeed(0);     // Motor 2 stops.
-  Serial.println("Robot stopped"); 
+  //Serial.println("Robot stopped"); 
 }
 
 void updateOppoSensorReadings() {
@@ -280,7 +287,7 @@ void attackOpponent() {
     goForward(500);  // Adjust the duration as needed
 
   } else*/ if (sensorValues[1] == 1) {
-    Serial.println("Opponent detected on the left front corner. Turning left.");
+    Serial.println("Opponent detected on the left. Turning left.");
     turnLeft(50);
     goForward(600);  // Adjust the duration as needed
   } else if (sensorValues[1] == 1 && sensorValues[2] == 1) {
@@ -300,7 +307,11 @@ void attackOpponent() {
   else if (sensorValues[3] == 1 && sensorValues[2] == 1) {
     Serial.println("Opponent detected on the right front corner. Moving forward and turning right.");
     goForward(400);  // Adjust the duration as needed
-  } else /*if (sensorValues[4] == 1) {
+  } else if(sensorValues[0] == 0 && sensorValues[1] == 0 && sensorValues[2] == 0 && sensorValues[3] == 0){
+    lastPosition();
+  }
+  
+   /*if (sensorValues[4] == 1) {
     Serial.println("Opponent detected on the right. Turning right.");
     turnRight(500);  // Adjust the duration as needed
   } */
